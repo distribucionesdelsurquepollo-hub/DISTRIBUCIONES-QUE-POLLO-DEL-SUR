@@ -15,7 +15,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  UserCog
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
@@ -98,6 +99,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
                 <SidebarLink href="/despresaje" icon={Scissors} label="Despresaje" onClick={() => setIsOpen(false)} />
                 <div className="h-px bg-slate-100 my-2" />
                 <SidebarLink href="/proveedores" icon={Users} label="Proveedores" onClick={() => setIsOpen(false)} />
+                <SidebarLink href="/usuarios" icon={UserCog} label="Usuarios" onClick={() => setIsOpen(false)} />
               </>
             )}
 

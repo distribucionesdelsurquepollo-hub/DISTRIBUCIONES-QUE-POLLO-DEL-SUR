@@ -1,11 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from 'firebase/auth'; // Using type only for compatibility
+import { User, onAuthStateChanged } from 'firebase/auth'; 
 import { Role, UserProfile } from '../types';
+import { auth, db } from '../lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthContextType {
-  user: User | null;
+  user: any | null;
   profile: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -15,9 +18,40 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    // Check localStorage for mock session first to maintain the user's specific request
+    const savedSession = localStorage.getItem('auth_session');
+    if (savedSession) {
+      try {
+        const { email, expiry } = JSON.parse(savedSession);
+        if (Date.now() < expiry) {
+          const mockUser = { email, uid: 'admin-123', displayName: 'Administrador' };
+          setUser(mockUser);
+          setProfile({
+            uid: 'admin-123',
+            email,
+            role: Role.ADMIN,
+            name: 'Administrador'
+          });
+          setLoading(false);
+          return;
+        } else {
+          localStorage.removeItem('auth_session');
+        }
+      } catch (e) {
+        localStorage.removeItem('auth_session');
+      }
+    }
+
+    // Default loading false if no session
+    setLoading(false);
+  }, []);
 
   const login = async (emailInput: string, passwordInput: string) => {
     // Specific credentials requested by user
@@ -26,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid: 'admin-123',
         email: emailInput,
         displayName: 'Administrador'
-      } as any;
+      };
       
       setUser(mockUser);
       setProfile({
@@ -41,36 +75,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }));
       return true;
     }
+
+    // Try to fetch from 'users' collection in Firestore (simple mock auth since we can't create real Firebase Auth users here easily without Admin SDK)
+    try {
+      const userDoc = await getDoc(doc(db, 'users', emailInput.replace(/\./g, '_')));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.password === passwordInput) {
+          const foundUser = {
+            uid: userDoc.id,
+            email: emailInput,
+            displayName: userData.name
+          };
+          setUser(foundUser);
+          setProfile({
+            uid: userDoc.id,
+            email: emailInput,
+            role: userData.role as Role,
+            name: userData.name
+          });
+          localStorage.setItem('auth_session', JSON.stringify({ 
+            email: emailInput, 
+            expiry: Date.now() + 86400000 // 24h
+          }));
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+    }
+
     return false;
   };
-
-  useEffect(() => {
-    const savedSession = localStorage.getItem('auth_session');
-    if (savedSession) {
-      try {
-        const { email, expiry } = JSON.parse(savedSession);
-        if (Date.now() < expiry) {
-          setUser({ email, uid: 'admin-123', displayName: 'Administrador' } as any);
-          setProfile({
-            uid: 'admin-123',
-            email,
-            role: Role.ADMIN,
-            name: 'Administrador'
-          });
-        } else {
-          localStorage.removeItem('auth_session');
-        }
-      } catch (e) {
-        localStorage.removeItem('auth_session');
-      }
-    }
-    setLoading(false);
-  }, []);
 
   const logout = async () => {
     setUser(null);
     setProfile(null);
     localStorage.removeItem('auth_session');
+    router.push('/login');
   };
 
   return (

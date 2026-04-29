@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/src/hooks/useAuth';
 import { motion } from 'motion/react';
 import { Lock, Mail, ChevronRight, AlertCircle } from 'lucide-react';
@@ -11,8 +11,14 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      router.push('/');
+    }
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
