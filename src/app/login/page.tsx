@@ -1,7 +1,10 @@
+"use client";
+
 import React, { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '@/src/hooks/useAuth';
 import { motion } from 'motion/react';
 import { Lock, Mail, ChevronRight, AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,6 +12,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,7 +21,9 @@ export default function Login() {
     
     try {
       const success = await login(email, password);
-      if (!success) {
+      if (success) {
+        router.push('/');
+      } else {
         setError('Credenciales inválidas. Por favor intente de nuevo.');
       }
     } catch (err) {

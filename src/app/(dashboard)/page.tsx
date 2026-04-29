@@ -1,9 +1,9 @@
+"use client";
+
 import React, { useEffect, useState } from 'react';
-import { 
-  getFinancialReport 
-} from '../services/reportService';
-import { subscribeToProducts } from '../services/productService';
-import { Product } from '../types';
+import { getFinancialReport } from '@/src/services/reportService';
+import { subscribeToProducts } from '@/src/services/productService';
+import { Product } from '@/src/types';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -15,7 +15,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { formatCurrency, formatNumber, cn } from '../lib/utils';
+import { formatCurrency, cn } from '@/src/lib/utils';
 import { 
   BarChart, 
   Bar, 
@@ -79,11 +79,11 @@ export default function Dashboard() {
     doc.save('reporte-financiero.pdf');
   };
 
-  if (loading) return <div>Cargando Dashboard...</div>;
+  if (loading) return <div className="p-8 text-center font-bold text-slate-500 animate-pulse">Cargando Dashboard...</div>;
 
   return (
     <div className="space-y-8 pb-12">
-      <header className="flex justify-between items-center">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-sans tracking-tight">Panel de Control</h1>
           <p className="text-slate-500 text-sm italic">Resumen de operaciones mes actual.</p>
@@ -121,7 +121,7 @@ export default function Dashboard() {
         />
         <StatCard 
           label="Ventas Realizadas" 
-          value={report?.salesCount} 
+          value={report?.salesCount || 0} 
           icon={ShoppingCart} 
           trend="Activo" 
           color="slate" 
@@ -130,7 +130,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Chart */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
            <div className="flex items-center justify-between mb-8">
               <h3 className="font-bold text-slate-900 flex items-center gap-2 uppercase text-xs tracking-widest">
                 <BarChart3 size={16} className="text-slate-400" /> Comparativa Financiera
@@ -159,7 +159,7 @@ export default function Dashboard() {
 
         {/* Alerts & Stock */}
         <div className="space-y-6">
-           <div className="bg-red-600 p-8 rounded-3xl text-white shadow-xl shadow-red-100 flex flex-col justify-between h-full">
+           <div className="bg-red-600 p-8 rounded-3xl text-white shadow-xl shadow-red-100 flex flex-col justify-between h-full min-h-[350px]">
               <div className="space-y-4">
                  <div className="flex items-center gap-3 opacity-80 uppercase text-[10px] font-black tracking-[0.2em]">
                     <AlertTriangle size={14} /> Alertas de Inventario
@@ -177,7 +177,7 @@ export default function Dashboard() {
                       </div>
                     ))}
                     {lowStockProducts.length === 0 && (
-                      <div className="text-center py-4 text-xs font-bold opacity-50 uppercase tracking-widest">Stock Saludable</div>
+                      <div className="text-center py-4 text-xs font-bold opacity-50 uppercase tracking-widest text-white/50">Stock Saludable</div>
                     )}
                  </div>
               </div>

@@ -1,5 +1,8 @@
+"use client";
+
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Package, 
@@ -17,14 +20,15 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { Button } from './ui/button';
 
-const SidebarLink = ({ to, icon: Icon, label, onClick }: { to: string; icon: any; label: string; onClick?: () => void }) => {
-  const location = useLocation();
-  const isActive = location.pathname === to;
+const SidebarLink = ({ href, icon: Icon, label, onClick }: { href: string; icon: any; label: string; onClick?: () => void }) => {
+  const pathname = usePathname();
+  const isActive = pathname === href;
   
   return (
     <Link
-      to={to}
+      href={href}
       onClick={onClick}
       className={cn(
         "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
@@ -39,7 +43,7 @@ const SidebarLink = ({ to, icon: Icon, label, onClick }: { to: string; icon: any
   );
 };
 
-export default function Layout() {
+export default function SidebarLayout({ children }: { children: React.ReactNode }) {
   const { profile, logout } = useAuth();
   const [isOpen, setIsOpen] = React.useState(false);
   const isAdmin = profile?.role === 'admin';
@@ -84,25 +88,25 @@ export default function Layout() {
           </div>
 
           <nav className="flex-1 flex flex-col gap-1">
-            <SidebarLink to="/" icon={LayoutDashboard} label="Dashboard" onClick={() => setIsOpen(false)} />
-            <SidebarLink to="/inventario" icon={Package} label="Inventario" onClick={() => setIsOpen(false)} />
-            <SidebarLink to="/ventas" icon={Tag} label="Ventas" onClick={() => setIsOpen(false)} />
+            <SidebarLink href="/" icon={LayoutDashboard} label="Dashboard" onClick={() => setIsOpen(false)} />
+            <SidebarLink href="/inventario" icon={Package} label="Inventario" onClick={() => setIsOpen(false)} />
+            <SidebarLink href="/ventas" icon={Tag} label="Ventas" onClick={() => setIsOpen(false)} />
             
             {isAdmin && (
               <>
-                <SidebarLink to="/compras" icon={ShoppingCart} label="Compras" onClick={() => setIsOpen(false)} />
-                <SidebarLink to="/despresaje" icon={Scissors} label="Despresaje" onClick={() => setIsOpen(false)} />
+                <SidebarLink href="/compras" icon={ShoppingCart} label="Compras" onClick={() => setIsOpen(false)} />
+                <SidebarLink href="/despresaje" icon={Scissors} label="Despresaje" onClick={() => setIsOpen(false)} />
                 <div className="h-px bg-slate-100 my-2" />
-                <SidebarLink to="/proveedores" icon={Users} label="Proveedores" onClick={() => setIsOpen(false)} />
+                <SidebarLink href="/proveedores" icon={Users} label="Proveedores" onClick={() => setIsOpen(false)} />
               </>
             )}
 
-            <SidebarLink to="/caja" icon={Banknote} label="Caja" onClick={() => setIsOpen(false)} />
+            <SidebarLink href="/caja" icon={Banknote} label="Caja" onClick={() => setIsOpen(false)} />
             
             {isAdmin && (
               <>
-                <SidebarLink to="/rrhh" icon={UsersRound} label="Recursos Humanos" onClick={() => setIsOpen(false)} />
-                <SidebarLink to="/configuracion" icon={Settings} label="Configuración" onClick={() => setIsOpen(false)} />
+                <SidebarLink href="/rrhh" icon={UsersRound} label="Recursos Humanos" onClick={() => setIsOpen(false)} />
+                <SidebarLink href="/configuracion" icon={Settings} label="Configuración" onClick={() => setIsOpen(false)} />
               </>
             )}
           </nav>
@@ -112,13 +116,14 @@ export default function Layout() {
               <p className="text-xs font-semibold text-slate-900 truncate">{profile?.name}</p>
               <p className="text-[10px] text-slate-500 truncate capitalize">{profile?.role}</p>
             </div>
-            <button 
+            <Button 
               onClick={logout}
-              className="flex items-center gap-3 w-full px-4 py-3 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              variant="ghost"
+              className="flex items-center gap-3 w-full justify-start px-4 py-6 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             >
               <LogOut size={20} />
               <span className="font-medium text-sm">Cerrar Sesión</span>
-            </button>
+            </Button>
           </div>
         </div>
       </aside>
@@ -130,7 +135,7 @@ export default function Layout() {
            animate={{ opacity: 1, y: 0 }}
            transition={{ duration: 0.3 }}
         >
-          <Outlet />
+          {children}
         </motion.div>
       </main>
     </div>

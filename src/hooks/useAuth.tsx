@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth'; // Using type only for compatibility
 import { Role, UserProfile } from '../types';
