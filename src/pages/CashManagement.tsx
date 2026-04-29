@@ -1,259 +1,166 @@
-import React, { useEffect, useState } from 'react';
-import { CashSession, CashMovement, Role } from '../types';
-import { getCurrentSession, openSession, addMovement, getSessionDate } from '../services/cashService';
+import React, { useState, useEffect } from 'react';
+import { db } from '../lib/firebase';
+import { collection, addDoc, query, where, getDocs, updateDoc, doc, Timestamp, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { 
-  Banknote, 
-  ArrowUpCircle, 
-  ArrowDownCircle, 
-  History,
-  Lock,
-  Unlock,
-  AlertCircle,
-  Plus
+  Wallet, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  History, 
+  TrendingUp, 
+  Clock, 
+  AlertTriangle,
+  ChevronRight
 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { formatCurrency, cn } from '../lib/utils';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { motion, AnimatePresence } from 'motion/react';
+import { format, isWithinInterval, setHours, setMinutes } from 'date-fns';
 
 export default function CashManagement() {
-  const { profile } = useAuth();
-  const [session, setSession] = useState<CashSession | null>(null);
-  const [movements, setMovements] = useState<CashMovement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showMoveModal, setShowMoveModal] = useState<'entry' | 'exit' | null>(null);
-  const [initialBase, setInitialBase] = useState(0);
-
-  const isAdmin = profile?.role === Role.ADMIN;
-  const sessionDate = getSessionDate();
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [summary, setSummary] = useState({ balance: 0, entries: 0, exits: 0 });
+  const [showMove, setShowMove] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const current = await getCurrentSession();
-      setSession(current);
-      setLoading(false);
-    };
-    fetchData();
+    const unsub = onSnapshot(collection(db, 'cash_transactions'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const sorted = data.sort((a: any, b: any) => b.timestamp?.toMillis() - a.timestamp?.toMillis());
+      
+      const balance = data.reduce((acc, curr: any) => 
+        curr.type === 'entry' ? acc + curr.amount : acc - curr.amount, 0);
+      const entries = data.filter((d: any) => d.type === 'entry').reduce((a, b: any) => a + b.amount, 0);
+      const exits = data.filter((d: any) => d.type === 'exit').reduce((a, b: any) => a + b.amount, 0);
 
-    const q = query(
-      collection(db, 'cashMovements'), 
-      where('date', '>=', new Date(new Date().setHours(0,0,0,0))),
-      orderBy('date', 'desc')
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setMovements(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashMovement)));
+      setTransactions(sorted);
+      setSummary({ balance, entries, exits });
     });
-
     return () => unsub();
   }, []);
 
-  const handleOpenSession = async () => {
-    if (initialBase < 0) return;
-    try {
-      await openSession(initialBase);
-      const current = await getCurrentSession();
-      setSession(current);
-    } catch (e) {
-      console.error(e);
-      alert('Error al abrir caja');
-    }
-  };
-
-  if (loading) return <div>Cargando Caja...</div>;
+  const now = new Date();
+  const start = setMinutes(setHours(now, 6), 0);
+  const end = setMinutes(setHours(now, 19), 0);
+  const isWithinTime = isWithinInterval(now, { start, end });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Gestión de Caja</h1>
-          <p className="text-slate-500 text-sm">Control diario de ingresos y egresos de efectivo.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Caja</h1>
+          <p className="text-slate-500 text-sm">Control de flujo financiero y base diaria.</p>
         </div>
-        <div className="flex bg-white px-4 py-2 rounded-xl border border-slate-200 items-center gap-2">
-          <History size={16} className="text-slate-400" />
-          <span className="text-sm font-bold text-slate-700">{sessionDate}</span>
+        <div className="flex items-center gap-3">
+          {!isWithinTime && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-xs font-bold border border-amber-100">
+              <Clock size={14} />
+              Fuera de horario comercial (6am - 7pm)
+            </div>
+          )}
+          <button 
+            onClick={() => setShowMove(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-100"
+          >
+            <ArrowUpRight size={18} />
+            Nuevo Movimiento
+          </button>
         </div>
       </header>
 
-      {!session ? (
-        <motion.div 
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xl shadow-slate-100 text-center max-w-xl mx-auto"
-        >
-          <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Lock size={40} />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Caja Cerrada</h2>
-          <p className="text-slate-500 mb-8 font-medium">Ingresa la base inicial para abrir la jornada operativa de hoy.</p>
-          
-          <div className="space-y-4">
-            <div className="space-y-1 text-left">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Base Inicial (COP)</label>
-              <input 
-                type="number" 
-                value={initialBase}
-                onChange={e => setInitialBase(parseFloat(e.target.value))}
-                className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 transition-all font-mono font-bold text-xl text-center"
-              />
-            </div>
-            <button 
-              onClick={handleOpenSession}
-              className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-red-700 shadow-lg shadow-red-100 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <Unlock size={18} />
-              Abrir Caja
-            </button>
-          </div>
-        </motion.div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Status Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-2 opacity-5 text-slate-900"><Banknote size={60} /></div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Base Inicial</p>
-                <p className="text-2xl font-black text-slate-900">{formatCurrency(session.initialBase)}</p>
-              </div>
-              <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 shadow-sm">
-                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Total Entradas</p>
-                <p className="text-2xl font-black text-emerald-700">+{formatCurrency(session.totalEntries)}</p>
-              </div>
-              <div className="bg-red-50 p-6 rounded-3xl border border-red-100 shadow-sm">
-                <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mb-1">Total Salidas</p>
-                <p className="text-2xl font-black text-red-700">-{formatCurrency(session.totalExits)}</p>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard title="Saldo Actual" value={summary.balance} icon={Wallet} color="text-slate-900" />
+        <StatCard title="Ingresos Totales" value={summary.entries} icon={ArrowUpRight} color="text-emerald-500" />
+        <StatCard title="Egresos Totales" value={summary.exits} icon={ArrowDownLeft} color="text-red-500" />
+      </div>
 
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                   <History size={18} className="text-slate-400" />
-                   Movimientos del Día
-                </h3>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto">
-                {movements.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-slate-400 p-12 text-center flex-col">
-                    <AlertCircle size={40} className="mb-2 opacity-20" />
-                    <p className="text-sm font-medium">No se han registrado movimientos de caja el día de hoy.</p>
-                  </div>
-                ) : (
-                  <table className="w-full text-left">
-                    <thead className="sticky top-0 bg-white">
-                      <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50">
-                        <th className="px-6 py-4">Hora</th>
-                        <th className="px-6 py-4">Justificación</th>
-                        <th className="px-6 py-4 text-right">Monto</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {movements.map(m => (
-                        <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 text-xs font-mono text-slate-500">
-                             {m.date?.toDate?.() ? m.date.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...'}
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm font-bold text-slate-800">{m.reason}</p>
-                          </td>
-                          <td className={cn(
-                            "px-6 py-4 text-right font-bold",
-                            m.type === 'entry' ? "text-emerald-600" : "text-red-600"
-                          )}>
-                            {m.type === 'entry' ? '+' : '-'}{formatCurrency(m.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-4 opacity-10 text-white rotate-12"><Banknote size={100} /></div>
-               <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Saldo en Caja</p>
-               <h3 className="text-4xl font-black font-mono mb-8">{formatCurrency(session.closingBalance)}</h3>
-               
-               <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => setShowMoveModal('entry')}
-                    className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest flex flex-col items-center gap-2 transition-all active:scale-95"
-                  >
-                    <ArrowUpCircle size={20} />
-                    Entrada
-                  </button>
-                  <button 
-                    onClick={() => setShowMoveModal('exit')}
-                    className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest flex flex-col items-center gap-2 transition-all active:scale-95"
-                  >
-                    <ArrowDownCircle size={20} />
-                    Salida
-                  </button>
-               </div>
-            </div>
-
-            <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl flex gap-4">
-               <AlertCircle size={24} className="text-amber-500 shrink-0" />
-               <div className="space-y-1">
-                 <h4 className="text-sm font-bold text-amber-900">Restricción de Horarios</h4>
-                 <p className="text-[11px] text-amber-700 leading-relaxed">
-                   Las transacciones después de las <b>7:00 PM</b> se registrarán automáticamente en la sesión del día siguiente.
-                 </p>
-               </div>
-            </div>
-
-            {isAdmin && (
-              <div className="bg-white p-6 rounded-3xl border border-slate-200">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Ajustes Base Inicial</h3>
-                <div className="flex gap-2">
-                  <input 
-                    type="number" 
-                    placeholder="Nueva Base..."
-                    className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm"
-                  />
-                  <button className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold">Actualizar</button>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+          <h2 className="font-bold text-slate-900 flex items-center gap-2">
+            <History size={18} className="text-slate-400" />
+            Historial de Movimientos
+          </h2>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Últimos 30 días</span>
+        </div>
+        
+        <div className="divide-y divide-slate-50">
+          {transactions.map(t => (
+            <div key={t.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.type === 'entry' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                  {t.type === 'entry' ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">{t.description}</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {t.timestamp ? format(t.timestamp.toDate(), 'PPP p') : 'Sincronizando...'}
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
+              <div className="text-right">
+                <div className={`font-black ${t.type === 'entry' ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {t.type === 'entry' ? '+' : '-'}${t.amount.toLocaleString()}
+                </div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase">{t.category || 'Varios'}</div>
+              </div>
+            </div>
+          ))}
+          {transactions.length === 0 && (
+            <div className="p-12 text-center text-slate-400">
+              <TrendingUp size={48} className="mx-auto mb-4 opacity-10" />
+              <p className="font-bold uppercase tracking-widest text-xs">No hay movimientos registrados</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {showMoveModal && (
-        <MovementModal 
-          type={showMoveModal} 
-          onClose={() => {
-            setShowMoveModal(null);
-            getCurrentSession().then(setSession);
-          }} 
-          userId={profile?.uid || ''}
-        />
-      )}
+      <AnimatePresence>
+        {showMove && (
+          <CashModal onClose={() => setShowMove(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function MovementModal({ type, onClose, userId }: { type: 'entry' | 'exit'; onClose: () => void; userId: string }) {
-  const [amount, setAmount] = useState(0);
-  const [reason, setReason] = useState('');
-  const [saving, setSaving] = useState(false);
+function StatCard({ title, value, icon: Icon, color }: any) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-2 bg-slate-50 rounded-lg ${color}`}>
+          <Icon size={20} />
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{title}</p>
+        <h3 className="text-2xl font-black text-slate-900">${value.toLocaleString()}</h3>
+      </div>
+    </div>
+  );
+}
+
+function CashModal({ onClose }: { onClose: () => void }) {
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
+  const [type, setType] = useState<'entry' | 'exit'>('entry');
+  const [category, setCategory] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (amount <= 0 || !reason) return;
-    setSaving(true);
+    if (!amount || !description) return;
+    setLoading(true);
+
     try {
-      await addMovement({ type, amount, reason, date: null, userId });
+      await addDoc(collection(db, 'cash_transactions'), {
+        amount: parseFloat(amount),
+        description,
+        type,
+        category,
+        timestamp: serverTimestamp()
+      });
       onClose();
-    } catch (e: any) {
-      alert(e.message);
+    } catch (err) {
+      console.error(err);
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -261,55 +168,64 @@ function MovementModal({ type, onClose, userId }: { type: 'entry' | 'exit'; onCl
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
-        <div className={cn("p-6 flex items-center justify-between text-white", type === 'entry' ? "bg-emerald-600" : "bg-red-600")}>
-          <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-2">
-            {type === 'entry' ? <ArrowUpCircle /> : <ArrowDownCircle />}
-            Registrar {type === 'entry' ? 'Entrada' : 'Salida'}
-          </h2>
-          <button onClick={onClose}><X size={20} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="space-y-1">
-             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Monto de la Operación</label>
-             <input 
-              required
-              type="number" 
-              autoFocus
-              value={amount}
-              onChange={e => setAmount(parseFloat(e.target.value))}
-              className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-slate-900 font-mono font-bold text-2xl text-center"
-             />
+        <form onSubmit={handleSubmit}>
+          <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+            <h2 className="font-black uppercase tracking-widest text-sm">Nuevo Movimiento de Caja</h2>
           </div>
-          <div className="space-y-1">
-             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Justificación Obligatoria</label>
-             <textarea 
-              required
-              placeholder="Describa el motivo del movimiento..."
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-900 min-h-[100px] text-sm"
-             />
+          
+          <div className="p-8 space-y-4">
+            <div className="flex p-1 bg-slate-100 rounded-xl mb-4">
+              <button 
+                type="button"
+                onClick={() => setType('entry')}
+                className={`flex-1 py-3 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${type === 'entry' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
+              >
+                Ingreso
+              </button>
+              <button 
+                type="button"
+                onClick={() => setType('exit')}
+                className={`flex-1 py-3 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${type === 'exit' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400'}`}
+              >
+                Egreso
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Monto ($)</label>
+              <input required type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-900" placeholder="0.00" />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Descripción / Concepto</label>
+              <input required type="text" value={description} onChange={e => setDescription(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-900" placeholder="Ej: Pago de flete" />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Categoría</label>
+              <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-900">
+                <option value="">Seleccionar...</option>
+                <option value="Ventas">Ventas</option>
+                <option value="Compras">Compras</option>
+                <option value="Gastos">Gastos Generales</option>
+                <option value="Sueldos">Sueldos</option>
+                <option value="Servicios">Servicios</option>
+              </select>
+            </div>
           </div>
-          <button 
-            type="submit" 
-            disabled={saving}
-            className={cn(
-              "w-full py-4 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-lg",
-              type === 'entry' ? "bg-emerald-600 shadow-emerald-100" : "bg-red-600 shadow-red-100"
-            )}
-          >
-            {saving ? 'Procesando...' : 'Confirmar Movimiento'}
-          </button>
+
+          <div className="p-6 bg-slate-50 flex gap-3">
+            <button type="button" onClick={onClose} className="flex-1 py-4 text-slate-500 font-bold uppercase tracking-widest text-xs">Cancelar</button>
+            <button 
+              type="submit" 
+              disabled={loading}
+              className={`flex-[2] py-4 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-lg disabled:opacity-50 ${type === 'entry' ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700' : 'bg-red-600 shadow-red-100 hover:bg-red-700'}`}
+            >
+              Confirmar Movimiento
+            </button>
+          </div>
         </form>
       </motion.div>
     </div>
-  );
-}
-
-function X({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-    </svg>
   );
 }

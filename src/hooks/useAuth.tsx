@@ -1,14 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { User } from 'firebase/auth'; // Using type only for compatibility
 import { Role, UserProfile } from '../types';
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  login: () => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
 
@@ -19,44 +17,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
-        } else {
-          // Default role for new users - first user is admin, others sellers (or simple logic)
-          // For now, check if email matches the one in metadata
-          const isAdminEmail = user.email === 'distribucionesdelsurquepollo@gmail.com';
-          const newProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            role: isAdminEmail ? Role.ADMIN : Role.SELLER,
-            name: user.displayName || 'Usuario',
-          };
-          await setDoc(docRef, newProfile);
-          setProfile(newProfile);
-        }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const login = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+  const login = async (emailInput: string, passwordInput: string) => {
+    // Specific credentials requested by user
+    if (emailInput === "alex.b19h@gmail.com" && passwordInput === "060224Jc!") {
+      const mockUser = {
+        uid: 'admin-123',
+        email: emailInput,
+        displayName: 'Administrador'
+      } as any;
+      
+      setUser(mockUser);
+      setProfile({
+        uid: 'admin-123',
+        email: emailInput,
+        role: Role.ADMIN,
+        name: 'Administrador'
+      });
+      localStorage.setItem('auth_session', JSON.stringify({ 
+        email: emailInput, 
+        expiry: Date.now() + 86400000 // 24h
+      }));
+      return true;
+    }
+    return false;
   };
 
+  useEffect(() => {
+    const savedSession = localStorage.getItem('auth_session');
+    if (savedSession) {
+      try {
+        const { email, expiry } = JSON.parse(savedSession);
+        if (Date.now() < expiry) {
+          setUser({ email, uid: 'admin-123', displayName: 'Administrador' } as any);
+          setProfile({
+            uid: 'admin-123',
+            email,
+            role: Role.ADMIN,
+            name: 'Administrador'
+          });
+        } else {
+          localStorage.removeItem('auth_session');
+        }
+      } catch (e) {
+        localStorage.removeItem('auth_session');
+      }
+    }
+    setLoading(false);
+  }, []);
+
   const logout = async () => {
-    await signOut(auth);
+    setUser(null);
+    setProfile(null);
+    localStorage.removeItem('auth_session');
   };
 
   return (
