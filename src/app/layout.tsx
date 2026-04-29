@@ -6,7 +6,7 @@ import { AuthProvider } from "@/src/hooks/useAuth";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Que Pollo System",
+  title: "Distribuciones Que Pollo Del Sur",
   description: "Sistema integral de gestión para distribuidoras de productos cárnicos",
 };
 

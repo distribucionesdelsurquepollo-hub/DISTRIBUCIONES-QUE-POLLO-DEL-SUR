@@ -79,11 +79,11 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
         <div className="flex flex-col h-full">
           <div className="flex items-center gap-2 px-2 mb-8">
             <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-              Q
+              D
             </div>
             <div>
               <h1 className="text-sm font-bold text-slate-900 leading-tight uppercase">Que Pollo</h1>
-              <p className="text-[10px] text-slate-500 font-medium">Del Sur Distribuciones</p>
+              <p className="text-[10px] text-slate-500 font-medium">Distribuciones Del Sur</p>
             </div>
           </div>
 
