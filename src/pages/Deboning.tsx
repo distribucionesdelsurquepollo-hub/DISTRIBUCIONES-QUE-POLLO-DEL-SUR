@@ -247,7 +247,7 @@ function DeboningHistory() {
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'deboning_logs'), (snap) => {
-      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis()));
+      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)));
     });
     return () => unsub();
   }, []);
