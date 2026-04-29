@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'distribucionesdelsurquepollo@gmail.com' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isSeller() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller' ||
+        isAdmin()
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Business Config
+    match /config/business {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // User Roles
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Products
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isSignedIn(); // Stock updates happen during sales/purchases
+      allow delete: if isAdmin();
+    }
+
+    // Providers
+    match /providers/{providerId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Purchases
+    match /purchases/{purchaseId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Sales
+    match /sales/{saleId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // Deboning
+    match /deboning/{deboningId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Cash Sessions
+    match /cashSessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); // Sellers can create initial session base
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Cash Movements
+    match /cashMovements/{movementId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // Employees
+    match /employees/{employeeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Attendance
+    match /attendance/{attendanceId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // Advances
+    match /advances/{advanceId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

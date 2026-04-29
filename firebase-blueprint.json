@@ -1,0 +1,165 @@
+{
+  "entities": {
+    "BusinessConfig": {
+      "title": "Business Configuration",
+      "description": "General settings and info for the business",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "nit": { "type": "string" },
+        "phone1": { "type": "string" },
+        "phone2": { "type": "string" },
+        "addressMain": { "type": "string" },
+        "addressWarehouse": { "type": "string" },
+        "email": { "type": "string" },
+        "manager": { "type": "string" },
+        "logoUrl": { "type": "string" }
+      }
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Inventory items",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "unit": { "type": "string", "enum": ["kg", "unit"] },
+        "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "purchasePrice": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "category": { "type": "string" }
+      },
+      "required": ["name", "unit", "stock"]
+    },
+    "Provider": {
+      "title": "Provider",
+      "description": "Suppliers of products",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Product acquisition event",
+      "type": "object",
+      "properties": {
+        "providerId": { "type": "string" },
+        "providerName": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "advance": { "type": "number" },
+        "isDeboned": { "type": "boolean" }
+      },
+      "required": ["date", "items", "total"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Product sale event",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "advance": { "type": "number" }
+      },
+      "required": ["date", "items", "total"]
+    },
+    "Deboning": {
+      "title": "Deboning Process",
+      "description": "Transformation of whole chicken into parts",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date-time" },
+        "purchaseId": { "type": "string" },
+        "sourceProductId": { "type": "string" },
+        "sourceQty": { "type": "number" },
+        "resultItems": { "type": "array" }
+      },
+      "required": ["date", "sourceProductId", "sourceQty", "resultItems"]
+    },
+    "CashSession": {
+      "title": "Cash Session",
+      "description": "Daily cash management summary",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "initialBase": { "type": "number" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "totalSales": { "type": "number" },
+        "totalPurchases": { "type": "number" },
+        "totalEntries": { "type": "number" },
+        "totalExits": { "type": "number" },
+        "closingBalance": { "type": "number" }
+      },
+      "required": ["date", "initialBase", "status"]
+    },
+    "CashMovement": {
+      "title": "Cash Movement",
+      "description": "Specific entry or exit of cash",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["entry", "exit"] },
+        "amount": { "type": "number" },
+        "reason": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["type", "amount", "reason", "date"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Staff members",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "salary": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "salary"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Employee time logs",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "date": { "type": "string" },
+        "checkIn": { "type": "string", "format": "date-time" },
+        "checkOut": { "type": "string", "format": "date-time" },
+        "novedades": { "type": "string" }
+      },
+      "required": ["employeeId", "date"]
+    },
+    "EmployeeAdvance": {
+      "title": "Employee Advance",
+      "description": "Salary advances",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "reason": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "config/business": { "schema": "BusinessConfig", "description": "Single document for business settings" },
+    "products": { "schema": "Product", "description": "Inventory products" },
+    "providers": { "schema": "Provider", "description": "Product suppliers" },
+    "purchases": { "schema": "Purchase", "description": "Purchase records" },
+    "sales": { "schema": "Sale", "description": "Sale records" },
+    "deboning": { "schema": "Deboning", "description": "Deboning records" },
+    "cashSessions": { "schema": "CashSession", "description": "Daily cash handles" },
+    "cashMovements": { "schema": "CashMovement", "description": "Transactions in cash" },
+    "employees": { "schema": "Employee", "description": "Employee list" },
+    "attendance": { "schema": "Attendance", "description": "Attendance logs" },
+    "advances": { "schema": "EmployeeAdvance", "description": "Salary advances" }
+  }
+}
